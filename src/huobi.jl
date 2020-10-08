@@ -53,8 +53,13 @@ function stats_24hr(symbol::String)
     return jsn["tick"]["vol"]
 end
 
-function order_book(symbol::String, depth::Int64)
-    path = "/market/depth"
-    url = join([BASE_URL, path], "/")
-    
+function order_book(symbol::String, type::String="step0")
+    _path = "market/depth"
+    url = join([BASE_URL, _path], "/")
+    params = "?symbol=$(lowercase(symbol))&type=$type"
+    response = HTTP.request("GET", url * params)
+    json = JSON.parse(String(response.body))
+    return json["tick"]
+end
+
 end
