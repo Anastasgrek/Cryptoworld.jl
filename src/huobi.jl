@@ -2,6 +2,11 @@ module huobi
 
 using HTTP
 using JSON
+using Nettle
+using Base64
+using Dates
+using Printf
+using DataStructures
 
 global const BASE_URL = "https://api.huobi.pro"
 
@@ -48,6 +53,8 @@ function stats_24hr(symbol::String)
     return jsn["tick"]["vol"]
 end
 
-
-
+function order_book(symbol::String, depth::Int64)
+    path = "/market/depth"
+    url = join([BASE_URL, path], "/")
+    
 end
