@@ -62,5 +62,17 @@ function order_book(symbol::String, type::String="step0")
     return json["tick"]
 end
 
-function 
+function klines(symbol::String, period::String, size::Int32)
+    _path = "market/history/kline"
+    point = join([BASE_URL, _path], "/")
+    params = "period=$period&size=$size&symbol=$symbol"
+    curl = join([point, params], "?")
+    response = HTTP.request("GET", curl)
+    json = JSON.parse(String(response.body))
+    return json
+end
+
+klines("btcusdt", "1min", 20)
+
+
 end
