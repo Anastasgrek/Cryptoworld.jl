@@ -62,4 +62,5 @@ function order_book(symbol::String, type::String="step0")
     return json["tick"]
 end
 
+function 
 end
