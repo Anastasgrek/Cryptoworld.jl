@@ -62,17 +62,25 @@ function order_book(symbol::String, type::String="step0")
     return json["tick"]
 end
 
-function klines(symbol::String, period::String, size::Int32)
+function klines(symbol::String, period::String, size::Int)
     _path = "market/history/kline"
     point = join([BASE_URL, _path], "/")
     params = "period=$period&size=$size&symbol=$symbol"
     curl = join([point, params], "?")
     response = HTTP.request("GET", curl)
     json = JSON.parse(String(response.body))
-    return json
+    return json["data"]
 end
 
-klines("btcusdt", "1min", 20)
+function historical_trades(symbol::String, size::Int)
+    _path = "market/history/trade"
+    point = join([BASE_URL, _path], "/")
+    params = "symbol=$symbol&size=$size"
+    curl = join([point, params], "?")
+    response = HTTP.request("GET", curl)
+    json = JSON.parse(String(response.body))
+    return json["data"]
+end
 
 
 end
