@@ -7,9 +7,27 @@ using Base64
 using Dates
 using Printf
 using DataStructures
+using StringEncodings
 
 global const BASE_URL = "https://api.huobi.pro"
 
+publickey() = ENV["HUOBI-PUBLIC-KEY"]
+secretkey() = ENV["HUOBI-SECRET-KEY"]
+
+
+function signature(secret::String, query::String)
+
+    sha256 = HMACState("sha256", secret)
+    Nettle.update!(sha256, query)
+
+    return base64encode(Nettle.hexdigest!(sha256))
+end
+
+
+
+
+
+#Public requests
 
 function details()
     endpoint = "/v1/common/symbols"
@@ -65,7 +83,7 @@ end
 function klines(symbol::String, period::String, size::Int)
     _path = "market/history/kline"
     point = join([BASE_URL, _path], "/")
-    params = "period=$period&size=$size&symbol=$symbol"
+    params = "period=$period&size=$size&symbol=$(lowercase(symbol))"
     curl = join([point, params], "?")
     response = HTTP.request("GET", curl)
     json = JSON.parse(String(response.body))
@@ -75,13 +93,29 @@ end
 function historical_trades(symbol::String, size::Int)
     _path = "market/history/trade"
     point = join([BASE_URL, _path], "/")
-    params = "symbol=$symbol&size=$size"
+    params = "symbol=$(lowercase(symbol))&size=$size"
     curl = join([point, params], "?")
     response = HTTP.request("GET", curl)
     json = JSON.parse(String(response.body))
     return json["data"]
 end
 
+#Signed requests
 
+# function accounts()
+_path = "v1/account/accounts"
 
+query = OrderedDict("AccessKeyId" => publickey(),
+                    "SignatureMethod" => "HmacSHA256",
+                    "SignatureVersion" => "2",
+                    "Timestamp" => HTTP.escapeuri(string(round(DateTime(now(UTC)), Dates.Second(1)))))
+
+pre_sigened = "GET\napi.huobi.pro\n/v1/account/accounts\n"
+query = join(string.(keys(query), "=" , values(query)), "&")
+params = string(pre_sigened, join(string.(keys(query), "=" , values(query)), "&"))
+
+res = HTTP.request("GET", string(BASE_URL, "/", _path, "?", query, "&Signature=", signature(secretkey(), params)))
+json = JSON.parse(String(res.body))
+# end
 end
+round(DateTime(now(UTC)), Dates.Second(1))
