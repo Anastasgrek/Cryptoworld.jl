@@ -31,7 +31,7 @@ function request(
     private::Bool
 )
     url = join([BASE_URL, request_path], "/")
-
+    
     if private && !ismissing(publickey) && !ismissing(secretkey)
         tunix = datetime2unix(now(UTC))
         ts = OrderedDict("timestamp" => Int64(round(1000 * tunix)))
@@ -72,32 +72,86 @@ function details(symbol = "ALL")
 
     return result
 end
-map(x -> x.symbol, details())
-info = request("GET", "public/ticker/BTC_KRW")
-date = unix2datetime(parse(Int64, info["data"]["date"]) * 0.001)
+
+
+
 function stats_24hr(symbol::String = "ALL")
     method = "GET"
     path = "public/ticker/"
 
-    symbols = map(x -> x.symbol, details())
-    for symbol in symbols
-        details = request(method, path * symbol)
+    if symbol != "ALL"
+        stats = request("GET", path * symbol)
+        return (
+            symbol = symbol,
+            open_price = stats["data"]["opening_price"],
+            close_price = stats["data"]["closing_price"],
+            low_price = stats["data"]["min_price"],
+            high_price = stats["data"]["max_price"],
+            base_volume = stats["data"]["units_traded_24H"],
+            quote_volume = stats["data"]["acc_trade_value"],
+            time = unix2datetime(parse(Int64, stats["data"]["date"]) * 0.001),
+        )
+    end
 
-        time = unix2datetime(parse(Int64, details["data"]["date"]) * 0.001),
-        open_price = details["data"]["opening_price"],
-        close_price = details["data"]["closing_price"],
-        low_price = details["data"]["min_price"],
-        high_price = details["data"]["max_price"],
-        base_volume = details["data"]["units_traded_24H"],
-        quote_volume = details["data"]["acc_trade_value_24H"]
+    stats = request("GET", "public/ticker/all")["data"]
+    result = Vector()
 
+    for pair in stats
+        if pair.first != "date"
+            push!(
+                result,
+                (
+                    symbol = pair.first * "_KRW",
+                    open_price = parse(Float64, pair.second["opening_price"]),
+                    close_price = parse(Float64, pair.second["closing_price"]),
+                    low_price = parse(Float64, pair.second["min_price"]),
+                    high_price = parse(Float64, pair.second["max_price"]),
+                    base_volume = parse(Float64, pair.second["units_traded_24H"]),
+                    quote_volume = parse(Float64, pair.second["acc_trade_value"]),
+                    time = unix2datetime(parse(Int64, stats["date"]) * 0.001),
+                ),
+            )
+        end
+    end
+    return result
+end
 
-    con = x -> (
-            time = unix2datetime(parse(Int64, x["date"]) * 0.001),
-            open_price = x["opening_price"],
-            close_price = x["closing_price"],
-            low_price = x["min_price"],
-            high_price = x["max_price"],
-            base_volume = x["units_traded_24H"],
-            quote_volume = x["acc_trade_value_24H"],
+function order_book(symbol::String)
+
+    method = "GET"
+    path = "public/orderbook/$(symbol)"
+    result = request(method, path)["data"]
+
+    return (
+        base_currency = result["order_currency"],
+        quote_currency = result["payment_currency"],
+        bids = result["bids"],
+        asks = result["asks"],
+        time = unix2datetime(parse(Int64, result["timestamp"]) * 0.001),
     )
+end
+
+
+request("GET", "public/ticker/all")
+
+function symbols()
+
+    method = "GET"
+    path = "public/ticker/all"
+
+    res = request(method, path)["data"]
+
+    result = filter!(x -> x != "date", unique(keys(res)))
+    result = map(x -> x * "_KRW", result)
+    return result
+end
+
+function balanses()
+    method = "POST"
+    path = "info/account"
+
+    result = request(method, path, publickey(), secretkey(), true)
+    return result
+end
+
+balanses()
