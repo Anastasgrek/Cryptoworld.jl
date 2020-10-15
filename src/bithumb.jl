@@ -55,9 +55,6 @@ function balance()
 end
 
 
-
-
-
 #Public requests
 function public_request(
     method::String,
@@ -159,4 +156,6 @@ function symbols()
     result = filter!(x -> x != "date", unique(keys(res)))
     result = map(x -> x * "_KRW", result)
     return result
+end
+
 end
