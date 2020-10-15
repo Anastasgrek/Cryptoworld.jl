@@ -13,32 +13,58 @@ global const BASE_URL = "https://api.bithumb.com"
 publickey() = ENV["BITHUMB-PUBLIC-KEY"]
 secretkey() = ENV["BITHUMB-SECRET-KEY"]
 
-function signature(secret::String, query::AbstractDict)
-    pairs = join(string.(keys(query), "=", values(query)), "&")
 
-    sha256 = HMACState("sha256", secret)
-    Nettle.update!(sha256, pairs)
+#Sign requests
 
-    return Nettle.hexdigest!(sha256)
+function private_request(
+    request_path::String,
+    query::OrderedDict,
+    public::String,
+    secret::String
+)
+    pairs =join(string.(keys(query),"=", HTTP.URIs.escapeuri.(values(query))), "&")
+	tunix = datetime2unix(now(UTC))
+	nonce = string(Int64(round(1000 * tunix)))
+
+	data = query["endpoint"] * Char(0) * pairs * Char(0) * nonce
+	hmac = HMACState("sha512", secret)
+	Nettle.update!(hmac, data)
+
+	url = BASE_URL * request_path
+
+	params = [
+		"Api-Key" => public,
+		"Api-Sign" => Base64.base64encode(Nettle.hexdigest!(hmac)),
+		"Api-Nonce" => nonce,
+		"Content-Type" => "application/x-www-form-urlencoded"
+	]
+	response = HTTP.post(url, params, pairs, status_exception=false)
+
+	json = JSON.parse(String(response.body))
+
+    return json
 end
 
-function request(
+
+function balance()
+	path = "/info/balance"
+	query = OrderedDict("endpoint" => path)
+
+	result = private_request(path, query, publickey(), secretkey())
+	return result["data"]
+end
+
+
+
+
+
+#Public requests
+function public_request(
     method::String,
-    request_path::String,
-    query::AbstractDict,
-    publickey::Union{Missing,String},
-    secretkey::Union{Missing,String},
-    private::Bool
+    request_path::String
 )
     url = join([BASE_URL, request_path], "/")
-    
-    if private && !ismissing(publickey) && !ismissing(secretkey)
-        tunix = datetime2unix(now(UTC))
-        ts = OrderedDict("timestamp" => Int64(round(1000 * tunix)))
 
-        sign = OrderedDict("signature" => signature(secretkey, query))
-        query = merge(query, sign)
-    end
     response = HTTP.request(method, url, query = query,
                             status_exception=false)
 
@@ -47,19 +73,11 @@ function request(
     return json
 end
 
-request(
-    method::String,
-    request_path::String,
-    query::AbstractDict = OrderedDict(),
-    private::Bool = true
-) = request(method, request_path, query, publickey(), secretkey(), private)
-
-
 function details(symbol = "ALL")
     method = "GET"
     path = "public/ticker/all"
 
-    details = request(method, path)
+    details = public_request(method, path)
 
     result = map(content -> begin
                 (symbol =content * "_KRW",
@@ -80,7 +98,7 @@ function stats_24hr(symbol::String = "ALL")
     path = "public/ticker/"
 
     if symbol != "ALL"
-        stats = request("GET", path * symbol)
+        stats = public_request("GET", path * symbol)
         return (
             symbol = symbol,
             open_price = stats["data"]["opening_price"],
@@ -93,7 +111,7 @@ function stats_24hr(symbol::String = "ALL")
         )
     end
 
-    stats = request("GET", "public/ticker/all")["data"]
+    stats = public_request("GET", "public/ticker/all")["data"]
     result = Vector()
 
     for pair in stats
@@ -120,7 +138,7 @@ function order_book(symbol::String)
 
     method = "GET"
     path = "public/orderbook/$(symbol)"
-    result = request(method, path)["data"]
+    result = public_request(method, path)["data"]
 
     return (
         base_currency = result["order_currency"],
@@ -131,27 +149,14 @@ function order_book(symbol::String)
     )
 end
 
-
-request("GET", "public/ticker/all")
-
 function symbols()
 
     method = "GET"
     path = "public/ticker/all"
 
-    res = request(method, path)["data"]
+    res = public_request(method, path)["data"]
 
     result = filter!(x -> x != "date", unique(keys(res)))
     result = map(x -> x * "_KRW", result)
     return result
 end
-
-function balanses()
-    method = "POST"
-    path = "info/account"
-
-    result = request(method, path, publickey(), secretkey(), true)
-    return result
-end
-
-balanses()

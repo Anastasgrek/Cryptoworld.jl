@@ -5,4 +5,6 @@ module Cryptoworld
 include("huobi.jl")
 using .huobi
 
+include("bithumb.jl")
+using .bithumb
 end
