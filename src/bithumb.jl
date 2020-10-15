@@ -14,7 +14,19 @@ publickey() = ENV["BITHUMB-PUBLIC-KEY"]
 secretkey() = ENV["BITHUMB-SECRET-KEY"]
 
 
-#Sign requests
+function public_request(
+    method::String,
+    request_path::String
+)
+    url = join([BASE_URL, request_path], "/")
+
+    response = HTTP.request(method, url,
+                            status_exception=false)
+
+    json = JSON.parse(String(response.body))
+
+    return json
+end
 
 function private_request(
     request_path::String,
@@ -45,6 +57,7 @@ function private_request(
     return json
 end
 
+#Sign requests
 
 function balance()
 	path = "/info/balance"
@@ -55,20 +68,9 @@ function balance()
 end
 
 
+
+
 #Public requests
-function public_request(
-    method::String,
-    request_path::String
-)
-    url = join([BASE_URL, request_path], "/")
-
-    response = HTTP.request(method, url, query = query,
-                            status_exception=false)
-
-    json = JSON.parse(String(response.body))
-
-    return json
-end
 
 function details(symbol = "ALL")
     method = "GET"
@@ -158,4 +160,13 @@ function symbols()
     return result
 end
 
+
+function historical_trades(symbol::String)
+
+	method = "GET"
+	path = "/public/transaction_history/$symbol"
+
+	result = public_request(method, path)
+
+	return result["data"]
 end
