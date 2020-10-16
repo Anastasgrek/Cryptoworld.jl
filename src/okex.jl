@@ -127,20 +127,36 @@ function klines(
     symbol::String,
     period::Int64 = 60, #1minute candle,
     start::Union{TimeType,Missing} = missing,
-    finish::Union{TimeType,Missing} = missing
+    finish::Union{TimeType,Missing} = missing,
 )
 
     method = "GET"
     path = "api/spot/v3/instruments/$symbol/candles"
+    format = "yyyy-mm-ddTHH:MM:SS.sss"
+
+    form =
+        x -> (
+            open = parse(Float64, x[2]),
+            high = parse(Float64, x[3]),
+            low = parse(Float64, x[4]),
+            close = parse(Float64, x[5]),
+            candle_volume = parse(Float64, x[6]),
+            time = DateTime(x[1][1:length(x[1])-1], format),
+        )
 
     if isequal(start, missing) && isequal(finish, missing)
         query = OrderedDict("granularity" => period)
         result = public_request(method, path, query)
-        return result
+        return map(form, result)
     end
 
-    query =
-        OrderedDict("granularity" => period, "start" => string(start) * "Z", "end" => string(finish) * "Z")
+    query = OrderedDict(
+        "granularity" => period,
+        "start" => string(start) * "Z",
+        "end" => string(finish) * "Z",
+    )
+
     result = public_request(method, path, query)
-    return result
+
+    return map(form, result)
 end
