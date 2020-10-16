@@ -98,7 +98,7 @@ function stats_24hr(symbol::String)
     )
 end
 
-function orderbook(symbol::String)
+function order_book(symbol::String)
     method = "GET"
     path = "v1/orderbook"
     query = ["markets" => symbol] |> OrderedDict
